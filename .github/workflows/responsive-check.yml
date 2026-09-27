@@ -1,0 +1,43 @@
+name: Responsive layout
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'style.css'
+      - 'assets/**'
+      - 'tests/**'
+      - '.github/workflows/responsive-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        run: npm --prefix tests ci
+      - name: Install Chromium and fonts
+        run: |
+          cd tests
+          npx playwright install --with-deps chromium
+          sudo apt-get install -y fonts-noto-cjk
+      - name: Check four viewport widths
+        run: npm --prefix tests run test:responsive
+      - name: Save screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: responsive-layout
+          path: |
+            tests/test-results/
+            tests/playwright-report/
+          retention-days: 30

@@ -20,6 +20,10 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
   const cssResponse = await page.request.get(new URL(cssHref, page.url()).href);
   expect(cssResponse.status()).toBe(200);
   expect(await cssResponse.text()).toBe(fs.readFileSync(path.join(__dirname, '../style.css'), 'utf8'));
+  const scriptHref = await page.locator('script[src]').getAttribute('src');
+  const scriptResponse = await page.request.get(new URL(scriptHref, page.url()).href);
+  expect(scriptResponse.status()).toBe(200);
+  expect(await scriptResponse.text()).toBe(fs.readFileSync(path.join(__dirname, '../script.js'), 'utf8'));
 
   const layout = await page.evaluate(() => {
     const rect = element => {
@@ -119,15 +123,25 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
   }
 
   const email = page.getByLabel('이메일 주소', { exact: true });
-  const button = page.getByRole('button', { name: '이메일 확인하기', exact: true });
+  const button = page.locator('#signup-button');
+  const feedback = page.locator('#signup-message');
+  await expect(feedback).toHaveAttribute('aria-live', 'polite');
+  await expect(feedback).toHaveText('이메일을 입력한 뒤 확인해 주세요.');
+  await expect(button).toBeEnabled();
   const formURL = page.url();
   await button.click();
   expect(await email.evaluate(input => input.validity.valueMissing)).toBe(true);
+  await expect(feedback).toHaveText('이메일 주소를 입력해 주세요.');
+  await expect(feedback).toHaveClass(/is-error/);
+  await expect(email).toHaveAttribute('aria-invalid', 'true');
   await expect(email).toBeFocused();
   expect(page.url()).toBe(formURL);
   await email.fill('invalid-email');
   await button.click();
   expect(await email.evaluate(input => input.validity.typeMismatch)).toBe(true);
+  await expect(feedback).toContainText('이메일 형식을 확인해 주세요.');
+  await expect(feedback).toHaveClass(/is-error/);
+  await page.locator('#signup').screenshot({ path: testInfo.outputPath(`error-${width}.png`) });
   expect(page.url()).toBe(formURL);
   await expect(email).toBeFocused();
   await email.fill('student@example.com');
@@ -135,8 +149,51 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
   await email.press('Tab');
   await expect(button).toBeFocused();
   await expect(button).toHaveCSS('outline-style', 'solid');
-  // 형식만 점검하고 실제 신청이나 이메일 전송은 하지 않습니다.
+
+  // 클릭과 Enter 모두 제출 처리로 연결되고, 서버 요청은 발생하지 않습니다.
+  await button.click();
+  await expect(feedback).toContainText('student@example.com의 이메일 형식을 확인했습니다.');
+  await expect(feedback).toHaveClass(/is-success/);
+  await expect(button).toHaveText('확인 완료');
+  await expect(button).toBeDisabled();
+  await expect(email).not.toHaveAttribute('aria-invalid', 'true');
+  expect(page.url()).toBe(formURL);
+  await page.locator('#signup').screenshot({ path: testInfo.outputPath(`success-${width}.png`) });
+
+  await email.press('Enter');
+  await expect(button).toBeDisabled();
+  expect(page.url()).toBe(formURL);
+
+  const longEmail = `${'student'.repeat(8)}@${'campus'.repeat(7)}.example.com`;
+  await email.fill(longEmail);
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveText('이메일 확인하기');
+  await expect(feedback).not.toHaveClass(/is-success|is-error/);
+  await email.press('Enter');
+  await expect(feedback).toContainText(longEmail);
+  await expect(feedback).toHaveClass(/is-success/);
+  await expect(button).toBeDisabled();
+  expect(page.url()).toBe(formURL);
+  const resultOverflow = await page.evaluate(() => ({
+    page: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    message: document.querySelector('#signup-message').scrollWidth > document.querySelector('#signup-message').clientWidth + 1
+  }));
+  expect(resultOverflow).toEqual({ page: false, message: false });
+  await page.locator('#signup').screenshot({ path: testInfo.outputPath(`long-email-${width}.png`) });
+
   await email.fill('');
+  await expect(button).toBeEnabled();
+  await email.press('Enter');
+  await expect(feedback).toHaveText('이메일 주소를 입력해 주세요.');
+  await expect(feedback).toHaveClass(/is-error/);
+  await email.fill('student@example.com');
+  await email.press('Enter');
+  await expect(button).toBeDisabled();
+  await page.reload({ waitUntil: 'networkidle' });
+  await expect(email).toHaveValue('');
+  await expect(button).toBeEnabled();
+  await expect(feedback).toHaveText('이메일을 입력한 뒤 확인해 주세요.');
+  expect(page.url()).toBe(formURL);
   await page.locator('#signup').screenshot({ path: testInfo.outputPath(`form-${width}.png`) });
   expect(errors).toEqual([]);
 });

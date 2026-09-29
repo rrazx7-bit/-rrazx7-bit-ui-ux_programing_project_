@@ -365,6 +365,42 @@ button:active {
   background-color: #122f1e;
 }
 
+button:disabled {
+  border-color: #526948;
+  background-color: #526948;
+  cursor: default;
+  transform: none;
+}
+
+input[aria-invalid="true"] {
+  border-color: #9a3f2e;
+}
+
+.form-feedback {
+  max-width: 720px;
+  margin-top: 16px;
+  margin-bottom: 0;
+  padding: 12px 14px;
+  border: 1px solid #c9d7bc;
+  border-radius: 10px;
+  color: #53624b;
+  background-color: #f6f8f2;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.form-feedback.is-error {
+  border-color: #ddb4a6;
+  color: #863427;
+  background-color: #fff0ed;
+}
+
+.form-feedback.is-success {
+  border-color: #a3bc91;
+  color: #244f37;
+  background-color: #e2edd9;
+}
+
 .helper-text {
   max-width: 720px;
   margin-top: 16px;

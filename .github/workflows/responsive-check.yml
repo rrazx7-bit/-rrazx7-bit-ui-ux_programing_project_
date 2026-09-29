@@ -6,6 +6,7 @@ on:
     paths:
       - 'index.html'
       - 'style.css'
+      - 'script.js'
       - 'assets/**'
       - 'tests/**'
       - '.github/workflows/responsive-check.yml'
@@ -30,7 +31,9 @@ jobs:
           cd tests
           npx playwright install --with-deps chromium
           sudo apt-get install -y fonts-noto-cjk
-      - name: Check four viewport widths
+      - name: Wait for published source
+        run: node tests/wait-for-site.cjs
+      - name: Check layout and email feedback
         run: npm --prefix tests run test:responsive
       - name: Save screenshots and report
         if: always()

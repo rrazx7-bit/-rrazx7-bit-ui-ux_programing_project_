@@ -7,7 +7,7 @@ const targets = {
 
 module.exports = defineConfig({
   testDir: '.',
-  testMatch: 'responsive.spec.cjs',
+  testMatch: '*.spec.cjs',
   timeout: 45000,
   workers: 1,
   retries: 0,

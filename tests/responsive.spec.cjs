@@ -7,6 +7,9 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
   const mobile = width <= 768;
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
 
   const response = await page.goto('./', { waitUntil: 'networkidle' });
   expect(response.status()).toBe(200);
@@ -60,7 +63,7 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
       formDirection: getComputedStyle(get('.signup-form')).flexDirection,
       form: rect(get('.signup-form')),
       input: rect(get('#email')),
-      button: rect(get('button')),
+      button: rect(get('#signup-button')),
       titleSize: getComputedStyle(get('h1')).fontSize,
       image: rect(get('.service-preview img')),
       sections: list('main > section'),
@@ -117,7 +120,7 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
   await expect(page.getByRole('link', { name: '본문 바로가기', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#main-content$/);
-  for (const [name, id] of [['서비스 소개', 'about'], ['주요 기능', 'features'], ['이용 방법', 'steps'], ['시작 알림 신청', 'signup']]) {
+  for (const [name, id] of [['서비스 소개', 'about'], ['주요 기능', 'features'], ['미리 체험', 'tryout'], ['이용 방법', 'steps'], ['시작 알림 신청', 'signup']]) {
     await page.getByRole('navigation').getByRole('link', { name, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#${id}$`));
   }
@@ -150,7 +153,7 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
   await expect(button).toBeFocused();
   await expect(button).toHaveCSS('outline-style', 'solid');
 
-  // 클릭과 Enter 모두 제출 처리로 연결되고, 서버 요청은 발생하지 않습니다.
+  // 클릭과 Enter 모두 같은 제출 처리로 연결되고 현재 화면을 유지합니다.
   await button.click();
   await expect(feedback).toContainText('student@example.com의 이메일 형식을 확인했습니다.');
   await expect(feedback).toHaveClass(/is-success/);

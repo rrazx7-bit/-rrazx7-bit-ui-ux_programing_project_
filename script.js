@@ -325,5 +325,17 @@ document.querySelector("#plan-confirm-submit").addEventListener("click", () => {
 planDialog.addEventListener("close", () => {
   if (currentPlanStep === 3) planFinish.focus();
 });
+planDialog.addEventListener("keydown", event => {
+  if (event.key !== "Tab") return;
+  const firstButton = document.querySelector("#plan-confirm-cancel");
+  const lastButton = document.querySelector("#plan-confirm-submit");
+  if (event.shiftKey && document.activeElement === firstButton) {
+    event.preventDefault();
+    lastButton.focus();
+  } else if (!event.shiftKey && document.activeElement === lastButton) {
+    event.preventDefault();
+    firstButton.focus();
+  }
+});
 document.querySelector("#plan-restart").addEventListener("click", restartPlan);
 syncPlanDateField();

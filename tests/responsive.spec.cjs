@@ -66,7 +66,7 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
       button: rect(get('#signup-button')),
       titleSize: getComputedStyle(get('h1')).fontSize,
       image: rect(get('.service-preview img')),
-      sections: list('main > section'),
+      sections: list('main > section:not([hidden])'),
       overflow,
       clippedText
     };

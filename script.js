@@ -173,3 +173,157 @@ featureTabs.forEach(function (tab) {
 });
 smallScreen.addEventListener("change", updateTabOrientation);
 updateTabOrientation();
+
+// 미리보기에서 입력한 과제를 이름·마감·확인·완료 순서로 정리합니다.
+const planStart = document.querySelector("#plan-start");
+const planFlow = document.querySelector("#plan-flow");
+const planSteps = document.querySelectorAll(".plan-step");
+const planProgress = document.querySelector("#plan-progress");
+const planDetails = document.querySelector("#plan-details");
+const planOptions = document.querySelector("#plan-options");
+const planTitle = document.querySelector("#plan-title");
+const planCourse = document.querySelector("#plan-course");
+const planMode = document.querySelector("#plan-deadline-mode");
+const planDate = document.querySelector("#plan-date");
+const planDateField = document.querySelector("#plan-date-field");
+const planTitleError = document.querySelector("#plan-title-error");
+const planModeError = document.querySelector("#plan-mode-error");
+const planDateError = document.querySelector("#plan-date-error");
+const planDialog = document.querySelector("#plan-confirm");
+const planFinish = document.querySelector("#plan-finish");
+const planSummaryFields = [
+  ["#plan-summary-title", "#plan-done-title-text"],
+  ["#plan-summary-course", "#plan-done-course"],
+  ["#plan-summary-deadline", "#plan-done-deadline"]
+];
+let currentPlanStep = 1;
+let planStarted = false;
+
+function showPlanStep(step) {
+  currentPlanStep = step;
+  planSteps.forEach(function (element) {
+    element.hidden = Number(element.dataset.step) !== step;
+  });
+  const labels = ["1 / 3 · 과제 입력", "2 / 3 · 마감 선택", "3 / 3 · 내용 확인", "계획 완료"];
+  planProgress.textContent = labels[step - 1];
+  planFlow.classList.toggle("is-complete", step === 4);
+  planFlow.scrollIntoView({ block: "start" });
+  const focusTargets = [planTitle, planMode, document.querySelector("#plan-review-title"), document.querySelector("#plan-done-title")];
+  focusTargets[step - 1].focus({ preventScroll: true });
+}
+
+function clearPlanError(input, message) {
+  input.classList.remove("has-error");
+  input.removeAttribute("aria-invalid");
+  message.textContent = "";
+}
+
+function showPlanError(input, message, text) {
+  input.classList.add("has-error");
+  input.setAttribute("aria-invalid", "true");
+  message.textContent = text;
+  input.focus();
+}
+
+function syncPlanDateField() {
+  const needsDate = planMode.value === "date";
+  planDateField.hidden = !needsDate;
+  planDate.disabled = !needsDate;
+  planDate.required = needsDate;
+  clearPlanError(planMode, planModeError);
+  if (!needsDate) {
+    planDate.value = "";
+    clearPlanError(planDate, planDateError);
+  }
+}
+
+function renderPlanSummary() {
+  const values = [
+    planTitle.value.trim(),
+    planCourse.value.trim() || "미지정",
+    planMode.value === "date" ? planDate.value : "마감일 없음"
+  ];
+  planSummaryFields.forEach(function (selectors, index) {
+    selectors.forEach(function (selector) {
+      document.querySelector(selector).textContent = values[index];
+    });
+  });
+}
+
+function startPlan() {
+  if (!planStarted) {
+    planTitle.value = taskNameInput.value.trim();
+    planStarted = true;
+  }
+  planFlow.hidden = false;
+  planStart.setAttribute("aria-expanded", "true");
+  planStart.textContent = "계획 이어서 보기";
+  showPlanStep(currentPlanStep);
+}
+
+function checkPlanDetails(event) {
+  event.preventDefault();
+  if (currentPlanStep !== 1) return;
+  if (!planTitle.value.trim()) {
+    showPlanError(planTitle, planTitleError, "과제 이름을 입력해 주세요.");
+    return;
+  }
+  clearPlanError(planTitle, planTitleError);
+  planTitle.value = planTitle.value.trim();
+  planCourse.value = planCourse.value.trim();
+  showPlanStep(2);
+}
+
+function checkPlanOptions(event) {
+  event.preventDefault();
+  if (currentPlanStep !== 2) return;
+  if (!planMode.value) {
+    showPlanError(planMode, planModeError, "마감 방식을 선택해 주세요.");
+    return;
+  }
+  clearPlanError(planMode, planModeError);
+  if (planMode.value === "date" && (!planDate.value || !planDate.validity.valid)) {
+    showPlanError(planDate, planDateError, "마감일을 선택해 주세요.");
+    return;
+  }
+  clearPlanError(planDate, planDateError);
+  renderPlanSummary();
+  showPlanStep(3);
+}
+
+function restartPlan() {
+  planDetails.reset();
+  planOptions.reset();
+  clearPlanError(planTitle, planTitleError);
+  clearPlanError(planMode, planModeError);
+  clearPlanError(planDate, planDateError);
+  syncPlanDateField();
+  planSummaryFields.forEach(function (selectors) {
+    selectors.forEach(function (selector) {
+      document.querySelector(selector).textContent = "";
+    });
+  });
+  showPlanStep(1);
+}
+
+planStart.addEventListener("click", startPlan);
+planDetails.addEventListener("submit", checkPlanDetails);
+planOptions.addEventListener("submit", checkPlanOptions);
+planTitle.addEventListener("input", () => clearPlanError(planTitle, planTitleError));
+planMode.addEventListener("change", syncPlanDateField);
+planDate.addEventListener("input", () => clearPlanError(planDate, planDateError));
+document.querySelector("#plan-back-options").addEventListener("click", () => showPlanStep(1));
+document.querySelector("#plan-back-review").addEventListener("click", () => showPlanStep(2));
+planFinish.addEventListener("click", () => {
+  if (currentPlanStep === 3) planDialog.showModal();
+});
+document.querySelector("#plan-confirm-cancel").addEventListener("click", () => planDialog.close());
+document.querySelector("#plan-confirm-submit").addEventListener("click", () => {
+  planDialog.close();
+  showPlanStep(4);
+});
+planDialog.addEventListener("close", () => {
+  if (currentPlanStep === 3) planFinish.focus();
+});
+document.querySelector("#plan-restart").addEventListener("click", restartPlan);
+syncPlanDateField();

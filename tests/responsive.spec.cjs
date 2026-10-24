@@ -120,7 +120,7 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
   await expect(page.getByRole('link', { name: '본문 바로가기', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#main-content$/);
-  for (const [name, id] of [['서비스 소개', 'about'], ['주요 기능', 'features'], ['미리 체험', 'tryout'], ['이용 방법', 'steps'], ['시작 알림 신청', 'signup']]) {
+  for (const [name, id] of [['서비스 소개', 'about'], ['주요 기능', 'features'], ['미리 체험', 'tryout'], ['내 과제', 'my-tasks'], ['이용 방법', 'steps'], ['시작 알림 신청', 'signup']]) {
     await page.getByRole('navigation').getByRole('link', { name, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#${id}$`));
   }

@@ -6,7 +6,7 @@
   <meta name="description" content="모아봄은 대학생의 과제와 마감일을 한곳에 모아 오늘 할 일을 정리하는 서비스입니다.">
   <title>모아봄 | 대학생을 위한 과제 관리</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2328543c'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23e9f0e2'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=dfc1f3e">
+  <link rel="stylesheet" href="style.css?v=588870a">
 </head>
 <body>
   <!--
@@ -143,36 +143,46 @@
       <p id="plan-progress" class="plan-progress" role="status" aria-live="polite" aria-atomic="true">1 / 3 · 과제 입력</p>
       <p class="plan-note">작성 중인 내용은 새로고침하면 지워져요. 완료 후 ‘내 과제에 추가’를 누르면 이 브라우저에 보관됩니다.</p>
 
+      <form id="plan-form" novalidate aria-busy="false">
       <div class="plan-step" data-step="1">
         <h3>어떤 과제를 할 건가요?</h3>
-        <form id="plan-details" novalidate>
-          <div class="plan-field">
+        <div id="plan-details">
+          <div id="plan-title-field" class="plan-field">
             <label for="plan-title">과제 이름 <span class="field-requirement">필수</span></label>
-            <input id="plan-title" name="title" type="text" maxlength="60" required autocomplete="off"
-                   placeholder="예: 서비스 소개 페이지 정리" aria-describedby="plan-title-help plan-title-error">
-            <p id="plan-title-help" class="field-help">무엇을 해야 하는지 알아볼 수 있도록 60자 이내로 적어 주세요.</p>
+            <input id="plan-title" name="title" type="text" minlength="2" maxlength="60" required autocomplete="off"
+                   placeholder="예: 서비스 소개 페이지 정리" aria-describedby="plan-title-help plan-title-count plan-title-feedback plan-title-error">
+            <div class="field-meta">
+              <p id="plan-title-help" class="field-help">앞뒤 공백을 제외하고 2자 이상, 전체 60자 이내로 적어 주세요.</p>
+              <p id="plan-title-count" class="character-count">0 / 60자</p>
+            </div>
+            <p id="plan-title-feedback" class="field-feedback" role="status" aria-live="polite"></p>
             <p id="plan-title-error" class="field-error" role="alert"></p>
           </div>
           <div class="plan-field">
             <label for="plan-course">과목 <span class="field-requirement">선택</span></label>
-            <input id="plan-course" name="course" type="text" maxlength="30" autocomplete="off" placeholder="예: UI/UX 프로그래밍">
+            <input id="plan-course" name="course" type="text" maxlength="30" autocomplete="off" placeholder="예: UI/UX 프로그래밍"
+                   aria-describedby="plan-course-help plan-course-error">
+            <p id="plan-course-help" class="field-help">과목을 함께 기억하고 싶다면 30자 이내로 적어 주세요. 비워 두어도 괜찮아요.</p>
+            <p id="plan-course-error" class="field-error" role="alert"></p>
           </div>
           <div class="plan-actions">
-            <button id="plan-next-details" type="submit">마감 선택하기</button>
+            <button id="plan-next-details" type="button">마감 선택하기</button>
           </div>
-        </form>
+        </div>
       </div>
 
       <div class="plan-step" data-step="2" hidden>
         <h3>언제까지 할 일인가요?</h3>
-        <form id="plan-options" novalidate>
+        <div id="plan-options">
           <div class="plan-field">
             <label for="plan-deadline-mode">마감 방식 <span class="field-requirement">필수</span></label>
-            <select id="plan-deadline-mode" name="deadline-mode" required aria-describedby="plan-mode-error">
+            <select id="plan-deadline-mode" name="deadline-mode" required aria-controls="plan-date-field" aria-expanded="false"
+                    aria-describedby="plan-mode-help plan-mode-error">
               <option value="">마감 방식을 선택해 주세요</option>
               <option value="date">마감일 지정</option>
               <option value="none">마감일 없이 시작</option>
             </select>
+            <p id="plan-mode-help" class="field-help">마감일을 지정할 때만 날짜를 입력해요. 기한이 없다면 마감일 없이 시작할 수 있어요.</p>
             <p id="plan-mode-error" class="field-error" role="alert"></p>
           </div>
           <div id="plan-date-field" class="plan-field" hidden>
@@ -183,9 +193,9 @@
           </div>
           <div class="plan-actions">
             <button id="plan-back-options" class="secondary-button" type="button">이전: 과제 입력</button>
-            <button id="plan-next-options" type="submit">계획 내용 확인하기</button>
+            <button id="plan-next-options" type="button">계획 내용 확인하기</button>
           </div>
-        </form>
+        </div>
       </div>
 
       <div class="plan-step" data-step="3" hidden>
@@ -198,7 +208,7 @@
         <p class="field-help">바꾸고 싶은 내용이 있으면 이전 단계로 돌아가 수정할 수 있어요.</p>
         <div class="plan-actions">
           <button id="plan-back-review" class="secondary-button" type="button">이전: 마감 선택</button>
-          <button id="plan-finish" type="button">이 계획으로 시작하기</button>
+          <button id="plan-finish" type="submit">이 계획으로 시작하기</button>
         </div>
       </div>
 
@@ -212,19 +222,21 @@
           <div><dt>마감</dt><dd id="plan-done-deadline"></dd></div>
         </dl>
         <div class="plan-actions">
-          <button id="plan-save-button" type="button">내 과제에 추가</button>
+          <button id="plan-save-button" type="submit">내 과제에 추가</button>
           <button id="plan-view-list" class="secondary-button" type="button" disabled>내 과제 목록 보기</button>
+          <button id="plan-edit" class="secondary-button" type="button">내용 수정하기</button>
           <button id="plan-restart" class="secondary-button" type="button">새 계획 세우기</button>
         </div>
-        <p id="plan-save-message" class="helper-text" role="status" aria-live="polite">목록에 추가하면 이 브라우저에서 다시 열 수 있어요.</p>
+        <p id="plan-save-message" class="submit-message" data-state="idle" role="status" aria-live="polite" aria-atomic="true">목록에 추가하면 이 브라우저에서 다시 열 수 있어요.</p>
       </div>
+      </form>
 
       <dialog id="plan-confirm" class="plan-dialog" aria-labelledby="plan-confirm-title" aria-describedby="plan-confirm-description">
         <h3 id="plan-confirm-title">이 계획으로 시작할까요?</h3>
         <p id="plan-confirm-description">확정하면 정리한 계획과 다음 할 일을 확인할 수 있어요. 내용을 바꾸려면 다시 확인을 눌러 주세요.</p>
         <div class="plan-actions">
           <button id="plan-confirm-cancel" class="secondary-button" type="button" autofocus>다시 확인</button>
-          <button id="plan-confirm-submit" type="button">계획 확정</button>
+          <button id="plan-confirm-submit" type="submit" form="plan-form">계획 확정</button>
         </div>
       </dialog>
     </section>
@@ -334,6 +346,6 @@
     <p><a href="week1/index.html">초기 버전 보기</a> · <a href="https://github.com/rrazx7-bit/-rrazx7-bit-ui-ux_programing_project_">프로젝트 GitHub 저장소 보기</a></p>
     </div>
   </footer>
-  <script src="script.js?v=f5a0374"></script>
+  <script src="script.js?v=5c8c60a"></script>
 </body>
 </html>

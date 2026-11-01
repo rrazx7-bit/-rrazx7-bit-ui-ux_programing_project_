@@ -715,6 +715,74 @@ input[aria-invalid="true"] {
   display: none;
 }
 
+.field-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.field-meta .field-help {
+  flex: 1 1 220px;
+}
+
+.field-meta .character-count {
+  flex: 0 0 auto;
+  margin: 8px 0 0;
+  color: #53624b;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.field-feedback {
+  margin: 8px 0 0;
+  color: #28543c;
+  font-size: 14px;
+}
+
+#plan-title-field .field-feedback:empty {
+  display: none;
+}
+
+#plan-title-field .field-error {
+  display: block;
+  min-height: 25px;
+}
+
+#plan-title-field.is-valid input {
+  border-color: #28543c;
+  background-color: #f6faf2;
+}
+
+#plan-title-field.is-valid .field-error {
+  display: none;
+}
+
+.submit-message {
+  margin: 20px 0 0;
+  padding: 14px 16px;
+  border: 1px solid #c9d7bc;
+  border-radius: 10px;
+  color: #3c5333;
+  background-color: #edf3e7;
+  font-size: 14px;
+}
+
+.submit-message[data-state="loading"] {
+  border-style: dashed;
+}
+
+.submit-message[data-state="error"] {
+  border-color: #ddb4a6;
+  color: #863427;
+  background-color: #fff7f3;
+}
+
+#plan-form[aria-busy="true"] button {
+  cursor: wait;
+}
+
 .plan-actions {
   display: flex;
   flex-wrap: wrap;

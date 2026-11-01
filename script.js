@@ -174,23 +174,28 @@ featureTabs.forEach(function (tab) {
 smallScreen.addEventListener("change", updateTabOrientation);
 updateTabOrientation();
 
-// 미리보기에서 입력한 과제를 이름·마감·확인·완료 순서로 정리합니다.
+// 하나의 폼에서 입력·조건 검사·확정·목록 저장을 이어갑니다.
 const planStart = document.querySelector("#plan-start");
 const planFlow = document.querySelector("#plan-flow");
+const planForm = document.querySelector("#plan-form");
 const planSteps = document.querySelectorAll(".plan-step");
 const planProgress = document.querySelector("#plan-progress");
-const planDetails = document.querySelector("#plan-details");
-const planOptions = document.querySelector("#plan-options");
 const planTitle = document.querySelector("#plan-title");
+const planTitleField = document.querySelector("#plan-title-field");
+const planTitleCount = document.querySelector("#plan-title-count");
+const planTitleFeedback = document.querySelector("#plan-title-feedback");
 const planCourse = document.querySelector("#plan-course");
 const planMode = document.querySelector("#plan-deadline-mode");
 const planDate = document.querySelector("#plan-date");
 const planDateField = document.querySelector("#plan-date-field");
 const planTitleError = document.querySelector("#plan-title-error");
+const planCourseError = document.querySelector("#plan-course-error");
 const planModeError = document.querySelector("#plan-mode-error");
 const planDateError = document.querySelector("#plan-date-error");
 const planDialog = document.querySelector("#plan-confirm");
+const planConfirmSubmit = document.querySelector("#plan-confirm-submit");
 const planFinish = document.querySelector("#plan-finish");
+const planEdit = document.querySelector("#plan-edit");
 const planSummaryFields = [
   ["#plan-summary-title", "#plan-done-title-text"],
   ["#plan-summary-course", "#plan-done-course"],
@@ -200,6 +205,8 @@ let currentPlanStep = 1;
 let planStarted = false;
 let confirmedPlan = null;
 let currentSavedTaskId = null;
+let planSubmitState = "idle";
+let lockedPlanControls = [];
 
 function showPlanStep(step) {
   currentPlanStep = step;
@@ -220,31 +227,92 @@ function clearPlanError(input, message) {
   message.textContent = "";
 }
 
-function showPlanError(input, message, text) {
-  input.classList.add("has-error");
-  input.setAttribute("aria-invalid", "true");
-  message.textContent = text;
-  input.focus();
+function setPlanError(input, message, text) {
+  input.classList.toggle("has-error", Boolean(text));
+  if (text) input.setAttribute("aria-invalid", "true");
+  else input.removeAttribute("aria-invalid");
+  if (message.textContent !== text) message.textContent = text;
+}
+
+function titleProblem() {
+  if (!planTitle.value.trim()) return "과제 이름을 입력해 주세요.";
+  if (planTitle.value.trim().length < 2) return "과제 이름을 2자 이상 입력해 주세요.";
+  if (planTitle.value.length > 60) return "과제 이름을 60자 이내로 줄여 주세요.";
+  return "";
+}
+
+function courseProblem() {
+  return planCourse.value.length > 30 ? "과목을 30자 이내로 줄여 주세요." : "";
+}
+
+function modeProblem() {
+  return ["date", "none"].includes(planMode.value) ? "" : "마감 방식을 선택해 주세요.";
+}
+
+function dateProblem() {
+  if (planMode.value !== "date") return "";
+  if (!planDate.value) return "마감일을 선택해 주세요.";
+  if (!planDate.validity.valid || !/^\d{4}-\d{2}-\d{2}$/.test(planDate.value)) {
+    return "올바른 날짜를 선택해 주세요. 연도는 네 자리까지 입력할 수 있어요.";
+  }
+  return "";
+}
+
+function updatePlanTitleFeedback() {
+  const problem = titleProblem();
+  planTitleCount.textContent = `${planTitle.value.length} / 60자`;
+  planTitleField.classList.toggle("is-valid", !problem);
+  const feedback = problem ? "" : "입력 조건을 충족했어요.";
+  if (planTitleFeedback.textContent !== feedback) planTitleFeedback.textContent = feedback;
+  // 처음 입력할 때는 조건만 안내하고, 이미 표시한 오류는 유효해질 때 해제합니다.
+  if (planTitleError.textContent) setPlanError(planTitle, planTitleError, problem);
 }
 
 function syncPlanDateField() {
   const needsDate = planMode.value === "date";
+  planMode.setAttribute("aria-expanded", String(needsDate));
   planDateField.hidden = !needsDate;
   planDate.disabled = !needsDate;
   planDate.required = needsDate;
-  clearPlanError(planMode, planModeError);
+  if (planModeError.textContent) setPlanError(planMode, planModeError, modeProblem());
   if (!needsDate) {
     planDate.value = "";
     clearPlanError(planDate, planDateError);
   }
 }
 
-function renderPlanSummary() {
-  const values = [
-    planTitle.value.trim(),
-    planCourse.value.trim() || "미지정",
-    planMode.value === "date" ? planDate.value : "마감일 없음"
+// 항목을 순서대로 검사한 뒤 오류가 있는 단계와 첫 입력칸으로 돌아갑니다.
+function validatePlan(includeOptions) {
+  updatePlanTitleFeedback();
+  const fields = [
+    [planTitle, planTitleError, titleProblem(), 1],
+    [planCourse, planCourseError, courseProblem(), 1]
   ];
+  if (includeOptions) fields.push(
+    [planMode, planModeError, modeProblem(), 2],
+    [planDate, planDateError, dateProblem(), 2]
+  );
+  fields.forEach(([input, error, problem]) => setPlanError(input, error, problem));
+  const firstError = fields.find(([, , problem]) => problem);
+  if (!firstError) return true;
+  if (planDialog.open) planDialog.close();
+  showPlanStep(firstError[3]);
+  firstError[0].focus();
+  return false;
+}
+
+function collectPlan() {
+  const data = new FormData(planForm);
+  return {
+    title: String(data.get("title") || "").trim(),
+    course: String(data.get("course") || "").trim(),
+    deadline: data.get("deadline-mode") === "date" ? String(data.get("deadline") || "") : ""
+  };
+}
+
+function renderPlanSummary() {
+  const plan = collectPlan();
+  const values = [plan.title, plan.course || "미지정", plan.deadline || "마감일 없음"];
   planSummaryFields.forEach(function (selectors, index) {
     selectors.forEach(function (selector) {
       document.querySelector(selector).textContent = values[index];
@@ -253,9 +321,11 @@ function renderPlanSummary() {
 }
 
 function startPlan() {
+  if (planSubmitState === "loading") return;
   if (!planStarted) {
     planTitle.value = taskNameInput.value.trim();
     planStarted = true;
+    updatePlanTitleFeedback();
   }
   planFlow.hidden = false;
   planStart.setAttribute("aria-expanded", "true");
@@ -263,49 +333,41 @@ function startPlan() {
   showPlanStep(currentPlanStep);
 }
 
-function checkPlanDetails(event) {
-  event.preventDefault();
-  if (currentPlanStep !== 1) return;
-  if (!planTitle.value.trim()) {
-    showPlanError(planTitle, planTitleError, "과제 이름을 입력해 주세요.");
-    return;
+function setPlanSubmitState(state, message) {
+  if (state === "loading") {
+    const controls = [...planForm.querySelectorAll("input, select, button"), planStart,
+      document.querySelector("#saved-new-plan"), document.querySelector("#saved-first-plan")];
+    lockedPlanControls = controls.map(control => [control, control.disabled]);
+    controls.forEach(control => { control.disabled = true; });
+  } else {
+    lockedPlanControls.forEach(([control, wasDisabled]) => { control.disabled = wasDisabled; });
+    lockedPlanControls = [];
+    planSaveButton.disabled = state === "success";
+    planViewList.disabled = state !== "success";
+    planEdit.disabled = state === "success";
   }
-  clearPlanError(planTitle, planTitleError);
-  planTitle.value = planTitle.value.trim();
-  planCourse.value = planCourse.value.trim();
-  showPlanStep(2);
+  planSubmitState = state;
+  planForm.setAttribute("aria-busy", String(state === "loading"));
+  planSaveMessage.dataset.state = state;
+  planSaveMessage.textContent = message;
+  planSaveButton.textContent = state === "loading" ? "저장 중…" :
+    state === "success" ? "목록에 추가됨" : state === "error" ? "다시 저장하기" : "내 과제에 추가";
 }
 
-function checkPlanOptions(event) {
-  event.preventDefault();
-  if (currentPlanStep !== 2) return;
-  if (!planMode.value) {
-    showPlanError(planMode, planModeError, "마감 방식을 선택해 주세요.");
-    return;
-  }
-  clearPlanError(planMode, planModeError);
-  if (planMode.value === "date" && (!planDate.value || !planDate.validity.valid)) {
-    showPlanError(planDate, planDateError, "마감일을 선택해 주세요.");
-    return;
-  }
-  clearPlanError(planDate, planDateError);
-  renderPlanSummary();
-  showPlanStep(3);
+function resetPlanSubmission() {
+  confirmedPlan = null;
+  currentSavedTaskId = null;
+  setPlanSubmitState("idle", "목록에 추가하면 이 브라우저에서 다시 열 수 있어요.");
 }
 
 function restartPlan() {
-  confirmedPlan = null;
-  currentSavedTaskId = null;
-  document.querySelector("#plan-save-button").disabled = false;
-  document.querySelector("#plan-save-button").textContent = "내 과제에 추가";
-  document.querySelector("#plan-view-list").disabled = true;
-  document.querySelector("#plan-save-message").textContent = "목록에 추가하면 이 브라우저에서 다시 열 수 있어요.";
-  planDetails.reset();
-  planOptions.reset();
-  clearPlanError(planTitle, planTitleError);
-  clearPlanError(planMode, planModeError);
-  clearPlanError(planDate, planDateError);
+  if (planSubmitState === "loading") return;
+  resetPlanSubmission();
+  planForm.reset();
+  [[planTitle, planTitleError], [planCourse, planCourseError], [planMode, planModeError], [planDate, planDateError]]
+    .forEach(([input, error]) => clearPlanError(input, error));
   syncPlanDateField();
+  updatePlanTitleFeedback();
   planSummaryFields.forEach(function (selectors) {
     selectors.forEach(function (selector) {
       document.querySelector(selector).textContent = "";
@@ -314,44 +376,79 @@ function restartPlan() {
   showPlanStep(1);
 }
 
+function handlePlanSubmit(event) {
+  event.preventDefault();
+  if (planSubmitState === "loading" || (currentPlanStep === 4 && currentSavedTaskId)) return;
+  if (!validatePlan(currentPlanStep !== 1)) return;
+  if (currentPlanStep === 1) {
+    planTitle.value = planTitle.value.trim();
+    planCourse.value = planCourse.value.trim();
+    updatePlanTitleFeedback();
+    showPlanStep(2);
+  } else if (currentPlanStep === 2) {
+    renderPlanSummary();
+    showPlanStep(3);
+  } else if (currentPlanStep === 3) {
+    renderPlanSummary();
+    if (event.submitter === planConfirmSubmit && planDialog.open) {
+      confirmedPlan = collectPlan();
+      planDialog.close();
+      showPlanStep(4);
+    } else if (!planDialog.open) {
+      planDialog.showModal();
+    }
+  } else if (currentPlanStep === 4) {
+    confirmedPlan = collectPlan();
+    renderPlanSummary();
+    addPlanToList();
+  }
+}
+
 planStart.addEventListener("click", startPlan);
-planDetails.addEventListener("submit", checkPlanDetails);
-planOptions.addEventListener("submit", checkPlanOptions);
-planTitle.addEventListener("input", () => clearPlanError(planTitle, planTitleError));
+planForm.addEventListener("submit", handlePlanSubmit);
+// 텍스트 입력의 Enter도 같은 submit 경로를 사용합니다. 한글 조합 중 Enter는 제외합니다.
+planForm.addEventListener("keydown", event => {
+  if (event.key === "Enter" && !event.isComposing && event.target.matches('input[type="text"]')) {
+    event.preventDefault();
+    planForm.requestSubmit();
+  }
+});
+["#plan-next-details", "#plan-next-options"].forEach(selector => {
+  document.querySelector(selector).addEventListener("click", () => planForm.requestSubmit());
+});
+planTitle.addEventListener("input", updatePlanTitleFeedback);
+planCourse.addEventListener("input", () => {
+  if (planCourseError.textContent) setPlanError(planCourse, planCourseError, courseProblem());
+});
 planMode.addEventListener("change", syncPlanDateField);
-planDate.addEventListener("input", () => clearPlanError(planDate, planDateError));
+planDate.addEventListener("input", () => {
+  if (planDateError.textContent) setPlanError(planDate, planDateError, dateProblem());
+});
 document.querySelector("#plan-back-options").addEventListener("click", () => showPlanStep(1));
 document.querySelector("#plan-back-review").addEventListener("click", () => showPlanStep(2));
-planFinish.addEventListener("click", () => {
-  if (currentPlanStep === 3) planDialog.showModal();
+planEdit.addEventListener("click", () => {
+  if (planSubmitState === "loading" || currentSavedTaskId) return;
+  resetPlanSubmission();
+  showPlanStep(1);
 });
 document.querySelector("#plan-confirm-cancel").addEventListener("click", () => planDialog.close());
-document.querySelector("#plan-confirm-submit").addEventListener("click", () => {
-  confirmedPlan = {
-    title: planTitle.value.trim(),
-    course: planCourse.value.trim(),
-    deadline: planMode.value === "date" ? planDate.value : ""
-  };
-  planDialog.close();
-  showPlanStep(4);
-});
 planDialog.addEventListener("close", () => {
   if (currentPlanStep === 3) planFinish.focus();
 });
 planDialog.addEventListener("keydown", event => {
   if (event.key !== "Tab") return;
   const firstButton = document.querySelector("#plan-confirm-cancel");
-  const lastButton = document.querySelector("#plan-confirm-submit");
   if (event.shiftKey && document.activeElement === firstButton) {
     event.preventDefault();
-    lastButton.focus();
-  } else if (!event.shiftKey && document.activeElement === lastButton) {
+    planConfirmSubmit.focus();
+  } else if (!event.shiftKey && document.activeElement === planConfirmSubmit) {
     event.preventDefault();
     firstButton.focus();
   }
 });
 document.querySelector("#plan-restart").addEventListener("click", restartPlan);
 syncPlanDateField();
+updatePlanTitleFeedback();
 
 // 확정한 계획을 보관하고 실제 과제의 진행 상태를 관리합니다.
 const savedStorageKey = "moabom.tasks.v1";
@@ -393,26 +490,36 @@ function validSavedTask(task) {
 function loadSavedTasks() {
   try {
     const raw = localStorage.getItem(savedStorageKey);
-    if (raw === null) return;
+    if (raw === null) {
+      savedTasks = [];
+      storageWritable = true;
+      savedStorageMessage.hidden = true;
+      savedStorageMessage.textContent = "";
+      return;
+    }
     const data = JSON.parse(raw);
     if (!data || data.version !== 1 || !Array.isArray(data.tasks) ||
         !data.tasks.every(validSavedTask) || new Set(data.tasks.map(task => task.id)).size !== data.tasks.length) {
       throw new Error("Invalid saved task data");
     }
     savedTasks = data.tasks;
+    storageWritable = true;
+    savedStorageMessage.hidden = true;
+    savedStorageMessage.textContent = "";
   } catch {
     storageWritable = false;
-    showStorageWarning("저장된 목록을 읽지 못했어요. 기존 데이터는 덮어쓰지 않습니다. 지금 추가하는 과제는 이 화면에서만 사용할 수 있어요.");
+    showStorageWarning("저장된 목록을 읽지 못했어요. 기존 데이터를 보호하기 위해 새 과제를 저장하지 않습니다. 브라우저의 저장 설정과 기존 데이터를 확인해 주세요.");
   }
 }
 
-function persistSavedTasks() {
+function persistSavedTasks(tasks = savedTasks) {
   if (!storageWritable) return false;
   try {
-    localStorage.setItem(savedStorageKey, JSON.stringify({ version: 1, tasks: savedTasks }));
+    localStorage.setItem(savedStorageKey, JSON.stringify({ version: 1, tasks }));
+    savedStorageMessage.hidden = true;
+    savedStorageMessage.textContent = "";
     return true;
   } catch {
-    storageWritable = false;
     showStorageWarning("변경 내용을 이 브라우저에 저장하지 못했어요. 현재 화면에서는 사용할 수 있지만, 새로고침하면 이번 변경이 사라질 수 있어요.");
     return false;
   }
@@ -461,26 +568,36 @@ function renderSavedTasks() {
   document.querySelector("#saved-show-all").hidden = !hasTasks;
 }
 
-function addPlanToList() {
-  if (currentPlanStep !== 4 || !confirmedPlan || currentSavedTaskId) return;
-  const existing = savedTasks.find(task => task.title === confirmedPlan.title &&
-    task.course === confirmedPlan.course && task.deadline === confirmedPlan.deadline);
-  let message;
+async function addPlanToList() {
+  if (currentPlanStep !== 4 || !confirmedPlan || currentSavedTaskId || planSubmitState === "loading") return;
+  const plan = { ...confirmedPlan };
+  setPlanSubmitState("loading", "과제 목록에 저장하고 있어요. 잠시 기다려 주세요.");
+  // 저장 안내가 화면에 표시된 뒤 브라우저 저장 결과를 확인합니다.
+  await new Promise(resolve => window.setTimeout(resolve, 400));
+  if (!storageWritable) loadSavedTasks();
+  const existing = savedTasks.find(task => task.title === plan.title &&
+    task.course === plan.course && task.deadline === plan.deadline);
   if (existing) {
     currentSavedTaskId = existing.id;
-    message = "같은 계획이 이미 목록에 있어요. 기존 과제를 확인해 주세요.";
+    setPlanSubmitState("success", "같은 계획이 이미 목록에 있어요. 기존 과제를 확인해 주세요.");
   } else {
-    const task = { ...confirmedPlan, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`, completed: false };
-    savedTasks.push(task);
+    const task = { ...plan, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`, completed: false };
+    const nextTasks = [...savedTasks, task];
+    // 성공한 경우에만 화면 목록을 바꿔 실패한 저장을 완료로 안내하지 않습니다.
+    if (!persistSavedTasks(nextTasks)) {
+      showStorageWarning(storageWritable ?
+        "새 과제를 저장하지 못했어요. 작성한 내용은 그대로 남아 있어요. 브라우저의 저장 권한과 여유 공간을 확인한 뒤 다시 저장해 주세요." :
+        "기존 목록을 읽지 못해 새 과제를 저장하지 못했어요. 원본은 덮어쓰지 않았습니다. 브라우저의 저장 설정과 기존 데이터를 확인해 주세요.");
+      setPlanSubmitState("error", "저장하지 못했어요. 작성한 내용은 그대로예요. 브라우저의 저장 설정과 여유 공간을 확인한 뒤 ‘다시 저장하기’를 눌러 주세요.");
+      planSaveButton.focus({ preventScroll: true });
+      return;
+    }
+    savedTasks = nextTasks;
     currentSavedTaskId = task.id;
-    const stored = persistSavedTasks();
-    message = stored ? "내 과제 목록에 추가했어요." : "내 과제 목록에 추가했어요. 저장하지 못해 현재 화면에서만 사용할 수 있어요.";
+    setPlanSubmitState("success", "내 과제 목록에 추가했어요.");
   }
-  planSaveButton.disabled = true;
-  planSaveButton.textContent = "목록에 추가됨";
-  planViewList.disabled = false;
-  planSaveMessage.textContent = message;
   renderSavedTasks();
+  planViewList.focus({ preventScroll: true });
 }
 
 function viewSavedList() {
@@ -492,6 +609,7 @@ function viewSavedList() {
 }
 
 function newPlanFromList() {
+  if (planSubmitState === "loading") return;
   planStarted = true;
   planFlow.hidden = false;
   planStart.setAttribute("aria-expanded", "true");
@@ -541,17 +659,13 @@ function deleteSavedTask() {
   const stored = persistSavedTasks();
   if (currentSavedTaskId === detailTaskId) {
     currentSavedTaskId = null;
-    planSaveButton.disabled = false;
-    planSaveButton.textContent = "내 과제에 추가";
-    planViewList.disabled = true;
-    planSaveMessage.textContent = "목록에서 삭제했어요. 필요하면 이 계획을 다시 추가할 수 있어요.";
+    setPlanSubmitState("idle", "목록에서 삭제했어요. 필요하면 이 계획을 다시 추가할 수 있어요.");
   }
   renderSavedTasks();
   savedListMessage.textContent = "과제를 목록에서 삭제했어요." + (stored ? "" : " 이번 변경은 저장하지 못했어요.");
   savedDialog.close();
 }
 
-planSaveButton.addEventListener("click", addPlanToList);
 planViewList.addEventListener("click", viewSavedList);
 savedFilter.addEventListener("change", () => {
   savedListMessage.textContent = "";

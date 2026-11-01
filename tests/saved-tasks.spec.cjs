@@ -252,13 +252,18 @@ test('saved tasks: storage failures show feedback and preserve a usable page', a
   await page.locator('#plan-save-button').click();
   await expect(page.locator('#saved-storage-message')).toBeVisible();
   await expect(page.locator('#saved-storage-message')).toContainText(/저장/);
-  await expect(page.locator('#saved-task-list .saved-task-card')).toHaveCount(1);
-  await expect(page.locator('.saved-task-card .saved-deadline')).toHaveText('마감일 없음');
-  await page.getByRole('button', { name: '과제 열기: 저장 실패에서도 확인할 과제', exact: true }).click();
-  await page.locator('#saved-toggle-status').click();
-  await expect(page.locator('#saved-detail-status')).toHaveText('완료');
-  await expect(page.locator('#saved-detail-feedback')).toContainText(/저장/);
-  await page.locator('#saved-close').click();
+  await expect(page.locator('#plan-save-message')).toContainText('저장하지 못했어요');
+  await expect(page.locator('#plan-save-button')).toBeEnabled();
+  await expect(page.locator('#plan-save-button')).toHaveText('다시 저장하기');
+  await expect(page.locator('#saved-task-list .saved-task-card')).toHaveCount(0);
+  await expect(page.locator('#plan-title')).toHaveValue('저장 실패에서도 확인할 과제');
+  await expect(page.locator('#plan-done-deadline')).toHaveText('마감일 없음');
+  // A failed submission remains editable and keeps its values until explicitly restarted.
+  await page.locator('#plan-edit').click();
+  await expect(page.locator('#plan-title')).toBeFocused();
+  await expect(page.locator('#plan-title')).toHaveValue('저장 실패에서도 확인할 과제');
+  await expect(page.locator('#plan-deadline-mode')).toHaveValue('none');
+  await expect(page.locator('#plan-save-button')).toHaveText('내 과제에 추가');
   await expectNoSavedOverflow(page);
   await page.reload({ waitUntil: 'networkidle' });
   await expect(page.locator('#saved-task-list .saved-task-card')).toHaveCount(0);
@@ -284,6 +289,21 @@ test('saved tasks: storage failures show feedback and preserve a usable page', a
     await invalidPage.locator('#saved-first-plan').click();
     await expect(invalidPage.locator('#plan-title')).toBeFocused();
     await expect(invalidPage.locator('#plan-flow')).toBeVisible();
+    await completePlan(invalidPage, '기존 목록을 지키며 새 계획 보관', '', '');
+    await invalidPage.locator('#plan-save-button').click();
+    await expect(invalidPage.locator('#plan-save-button')).toHaveText('다시 저장하기');
+    await expect(invalidPage.locator('#saved-task-list .saved-task-card')).toHaveCount(0);
+    expect(await invalidPage.evaluate(key => localStorage.getItem(key), storageKey)).toBe('{broken');
+    // A repaired source is read again on retry; a valid older one-character title is retained.
+    await invalidPage.evaluate(key => localStorage.setItem(key, JSON.stringify({
+      version: 1,
+      tasks: [{ id: 'older-task', title: '글', course: '', deadline: '', completed: false }]
+    })), storageKey);
+    await invalidPage.locator('#plan-save-button').click();
+    await expect(invalidPage.locator('#plan-save-message')).toHaveText('내 과제 목록에 추가했어요.');
+    await expect(invalidPage.locator('#saved-task-list .saved-task-card')).toHaveCount(2);
+    await expect(invalidPage.getByRole('button', { name: '과제 열기: 글', exact: true })).toBeVisible();
+    expect((await invalidPage.evaluate(key => JSON.parse(localStorage.getItem(key)), storageKey)).tasks).toHaveLength(2);
     expect(invalidErrors).toEqual([]);
   } finally {
     await context.close();

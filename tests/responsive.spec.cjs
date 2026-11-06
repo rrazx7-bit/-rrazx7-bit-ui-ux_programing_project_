@@ -28,6 +28,19 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
   expect(scriptResponse.status()).toBe(200);
   expect(await scriptResponse.text()).toBe(fs.readFileSync(path.join(__dirname, '../script.js'), 'utf8'));
 
+  // 닫힌 메뉴는 치수가 없으므로 모바일에서는 실제 버튼으로 열고 배치를 잽니다.
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: '본문 바로가기', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#main-content$/);
+  const mainNav = page.locator('#main-nav');
+  const menuToggle = page.locator('#menu-toggle');
+  if (mobile) {
+    await expect(mainNav).toBeHidden();
+    await menuToggle.click();
+    await expect(mainNav).toBeVisible();
+  }
+
   const layout = await page.evaluate(() => {
     const rect = element => {
       const r = element.getBoundingClientRect();
@@ -116,13 +129,12 @@ test('메뉴, 카드, 입력 영역의 반응형 배치와 조작', async ({ pag
     expect(Math.abs(layout.input.bottom - layout.button.bottom)).toBeLessThan(1);
   }
 
-  await page.keyboard.press('Tab');
-  await expect(page.getByRole('link', { name: '본문 바로가기', exact: true })).toBeFocused();
-  await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/#main-content$/);
-  for (const [name, id] of [['서비스 소개', 'about'], ['주요 기능', 'features'], ['미리 체험', 'tryout'], ['내 과제', 'my-tasks'], ['이용 방법', 'steps'], ['시작 알림 신청', 'signup']]) {
-    await page.getByRole('navigation').getByRole('link', { name, exact: true }).click();
+  for (const [name, id] of [['서비스 소개', 'about'], ['주요 기능', 'features'], ['미리 체험', 'tryout'], ['과제 계획', 'plan-flow'], ['내 과제', 'my-tasks'], ['이용 방법', 'steps'], ['시작 알림 신청', 'signup']]) {
+    if (mobile && !await mainNav.isVisible()) await menuToggle.click();
+    await mainNav.getByRole('link', { name, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#${id}$`));
+    await expect(mainNav.locator('a[aria-current]')).toHaveAttribute('href', `#${id}`);
+    if (mobile) await expect(mainNav).toBeHidden();
   }
 
   const email = page.getByLabel('이메일 주소', { exact: true });

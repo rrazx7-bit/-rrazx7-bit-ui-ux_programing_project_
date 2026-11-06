@@ -209,6 +209,7 @@ let planSubmitState = "idle";
 let lockedPlanControls = [];
 
 function showPlanStep(step) {
+  markDestination("plan-flow");
   currentPlanStep = step;
   planSteps.forEach(function (element) {
     element.hidden = Number(element.dataset.step) !== step;
@@ -433,6 +434,7 @@ planEdit.addEventListener("click", () => {
 });
 document.querySelector("#plan-confirm-cancel").addEventListener("click", () => planDialog.close());
 planDialog.addEventListener("close", () => {
+  if (closedForNavigation.delete(planDialog)) return;
   if (currentPlanStep === 3) planFinish.focus();
 });
 planDialog.addEventListener("keydown", event => {
@@ -454,7 +456,7 @@ updatePlanTitleFeedback();
 const savedStorageKey = "moabom.tasks.v1";
 const savedSection = document.querySelector("#my-tasks");
 const savedHeading = document.querySelector("#saved-heading");
-const savedFilter = document.querySelector("#saved-filter");
+const savedFilterButtons = document.querySelectorAll("#saved-filter button[data-filter]");
 const savedList = document.querySelector("#saved-task-list");
 const savedEmpty = document.querySelector("#saved-empty");
 const savedStorageMessage = document.querySelector("#saved-storage-message");
@@ -468,6 +470,7 @@ const planSaveButton = document.querySelector("#plan-save-button");
 const planViewList = document.querySelector("#plan-view-list");
 const planSaveMessage = document.querySelector("#plan-save-message");
 let savedTasks = [];
+let currentFilter = "all";
 let storageWritable = true;
 let detailTaskId = null;
 
@@ -533,10 +536,13 @@ function savedNode(tag, className, text) {
 }
 
 function renderSavedTasks() {
+  savedFilterButtons.forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.filter === currentFilter));
+  });
   const doneCount = savedTasks.filter(task => task.completed).length;
   document.querySelector("#saved-count").textContent = `전체 ${savedTasks.length}개 · 진행 중 ${savedTasks.length - doneCount}개 · 완료 ${doneCount}개`;
-  const visibleTasks = savedTasks.filter(task => savedFilter.value === "all" ||
-    (savedFilter.value === "done" ? task.completed : !task.completed));
+  const visibleTasks = savedTasks.filter(task => currentFilter === "all" ||
+    (currentFilter === "done" ? task.completed : !task.completed));
   visibleTasks.sort((a, b) => (a.deadline || "9999-99-99").localeCompare(b.deadline || "9999-99-99"));
   savedList.replaceChildren();
   visibleTasks.forEach(function (task) {
@@ -560,7 +566,7 @@ function renderSavedTasks() {
   savedEmpty.hidden = visibleTasks.length > 0;
   const hasTasks = savedTasks.length > 0;
   document.querySelector("#saved-empty-title").textContent = !hasTasks ? "아직 추가한 과제가 없어요" :
-    savedFilter.value === "done" ? "완료한 과제가 없어요" : "진행 중인 과제가 없어요";
+    currentFilter === "done" ? "완료한 과제가 없어요" : "진행 중인 과제가 없어요";
   document.querySelector("#saved-empty-help").textContent = hasTasks ?
     "다른 상태의 과제를 확인하려면 전체 과제 보기를 눌러 주세요." :
     "계획을 확정한 뒤 ‘내 과제에 추가’를 눌러 첫 과제를 담아 보세요.";
@@ -589,7 +595,7 @@ async function addPlanToList() {
         "새 과제를 저장하지 못했어요. 작성한 내용은 그대로 남아 있어요. 브라우저의 저장 권한과 여유 공간을 확인한 뒤 다시 저장해 주세요." :
         "기존 목록을 읽지 못해 새 과제를 저장하지 못했어요. 원본은 덮어쓰지 않았습니다. 브라우저의 저장 설정과 기존 데이터를 확인해 주세요.");
       setPlanSubmitState("error", "저장하지 못했어요. 작성한 내용은 그대로예요. 브라우저의 저장 설정과 여유 공간을 확인한 뒤 ‘다시 저장하기’를 눌러 주세요.");
-      planSaveButton.focus({ preventScroll: true });
+      if (location.hash === "#plan-flow") planSaveButton.focus({ preventScroll: true });
       return;
     }
     savedTasks = nextTasks;
@@ -597,12 +603,18 @@ async function addPlanToList() {
     setPlanSubmitState("success", "내 과제 목록에 추가했어요.");
   }
   renderSavedTasks();
-  planViewList.focus({ preventScroll: true });
+  if (location.hash === "#plan-flow") planViewList.focus({ preventScroll: true });
+}
+
+function selectSavedFilter(filter) {
+  currentFilter = filter;
+  savedListMessage.textContent = "";
+  renderSavedTasks();
 }
 
 function viewSavedList() {
-  savedFilter.value = "all";
-  renderSavedTasks();
+  markDestination("my-tasks");
+  selectSavedFilter("all");
   savedSection.scrollIntoView({ block: "start" });
   const target = document.getElementById(`saved-open-${currentSavedTaskId}`);
   (target || savedHeading).focus({ preventScroll: true });
@@ -667,14 +679,12 @@ function deleteSavedTask() {
 }
 
 planViewList.addEventListener("click", viewSavedList);
-savedFilter.addEventListener("change", () => {
-  savedListMessage.textContent = "";
-  renderSavedTasks();
+savedFilterButtons.forEach(button => {
+  button.addEventListener("click", () => selectSavedFilter(button.dataset.filter));
 });
 document.querySelector("#saved-show-all").addEventListener("click", () => {
-  savedFilter.value = "all";
-  renderSavedTasks();
-  savedFilter.focus();
+  selectSavedFilter("all");
+  document.querySelector('#saved-filter [data-filter="all"]').focus();
 });
 document.querySelector("#saved-new-plan").addEventListener("click", newPlanFromList);
 document.querySelector("#saved-first-plan").addEventListener("click", newPlanFromList);
@@ -695,7 +705,7 @@ savedDialog.addEventListener("cancel", event => {
 });
 savedDialog.addEventListener("close", () => {
   const returnButton = document.getElementById(`saved-open-${detailTaskId}`);
-  (returnButton || savedHeading).focus();
+  if (!closedForNavigation.delete(savedDialog)) (returnButton || savedHeading).focus();
   detailTaskId = null;
 });
 savedDialog.addEventListener("keydown", event => {
@@ -711,3 +721,149 @@ savedDialog.addEventListener("keydown", event => {
 });
 loadSavedTasks();
 renderSavedTasks();
+
+// 메뉴 링크, 계획 시작 버튼, 목록 보기 버튼이 같은 주소 체계를 사용합니다.
+const navigationBar = document.querySelector("#navigation-bar");
+const mainNav = document.querySelector("#main-nav");
+const menuToggle = document.querySelector("#menu-toggle");
+const mobileNavTools = document.querySelector("#mobile-nav-tools");
+const navLocation = document.querySelector("#nav-location");
+const closedForNavigation = new Set();
+const destinations = new Map([...mainNav.querySelectorAll("a")].map(link => {
+  const id = link.hash.slice(1);
+  return [id, { link, section: document.getElementById(id) }];
+}));
+let trackingScroll = false;
+let scrollFrame = 0;
+
+function paintDestination(id) {
+  for (const [key, { link }] of destinations) {
+    const selected = key === id;
+    link.classList.toggle("is-current", selected);
+    if (selected) {
+      link.setAttribute("aria-current", "location");
+      navLocation.textContent = link.textContent;
+    } else {
+      link.removeAttribute("aria-current");
+    }
+  }
+}
+
+function markDestination(id) {
+  trackingScroll = false;
+  if (location.hash !== "#" + id) history.pushState(null, "", "#" + id);
+  paintDestination(id);
+}
+
+function setMenuOpen(open) {
+  open = smallScreen.matches && open;
+  mobileNavTools.hidden = !smallScreen.matches;
+  mainNav.hidden = smallScreen.matches && !open;
+  menuToggle.setAttribute("aria-expanded", String(open));
+  menuToggle.textContent = open ? "메뉴 닫기" : "메뉴 열기";
+  if (!open) {
+    document.documentElement.style.setProperty("--nav-height", navigationBar.offsetHeight + "px");
+  }
+}
+
+function visitSection(id) {
+  if (!destinations.has(id)) return;
+  const { section } = destinations.get(id);
+  if (id === "plan-flow" && planSubmitState !== "loading") {
+    startPlan();
+    return;
+  }
+  section.scrollIntoView({ block: "start" });
+  const heading = section.querySelector("h2");
+  heading.tabIndex = -1;
+  heading.focus({ preventScroll: true });
+}
+
+function restoreDestination() {
+  trackingScroll = false;
+  for (const dialog of document.querySelectorAll("dialog[open]")) {
+    closedForNavigation.add(dialog);
+    dialog.close();
+  }
+  setMenuOpen(false);
+  const id = location.hash.slice(1);
+  paintDestination(destinations.has(id) ? id : "about");
+  if (destinations.has(id)) visitSection(id);
+}
+
+mainNav.addEventListener("click", event => {
+  const link = event.target.closest("a");
+  if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  const id = link.hash.slice(1);
+  setMenuOpen(false);
+  markDestination(id);
+  visitSection(id);
+});
+
+menuToggle.addEventListener("click", () => setMenuOpen(mainNav.hidden));
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && smallScreen.matches && !mainNav.hidden) {
+    setMenuOpen(false);
+    menuToggle.focus();
+    event.preventDefault();
+  }
+});
+navigationBar.addEventListener("focusout", event => {
+  if (smallScreen.matches && !navigationBar.contains(event.relatedTarget)) setMenuOpen(false);
+});
+document.addEventListener("pointerdown", event => {
+  if (smallScreen.matches && !mainNav.hidden && !navigationBar.contains(event.target)) setMenuOpen(false);
+});
+smallScreen.addEventListener("change", () => {
+  const focusInNav = mainNav.contains(document.activeElement);
+  const focusOnToggle = document.activeElement === menuToggle;
+  setMenuOpen(false);
+  if (smallScreen.matches && focusInNav) menuToggle.focus({ preventScroll: true });
+  if (!smallScreen.matches && focusOnToggle) mainNav.querySelector("[aria-current]").focus({ preventScroll: true });
+});
+window.addEventListener("hashchange", restoreDestination);
+window.addEventListener("pageshow", event => { if (event.persisted) restoreDestination(); });
+
+// 직접 스크롤할 때도 보이는 영역을 표시하되, 방문 기록을 구역마다 늘리지 않습니다.
+function beginScroll(event) {
+  if (menuToggle.getAttribute("aria-expanded") === "true" || document.querySelector("dialog[open]")) return;
+  if (event.type === "keydown" && (!["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "].includes(event.key)
+      || event.target.closest("input, select, textarea, button, [role=tablist]"))) return;
+  if (event.type === "pointerdown" && event.clientX < document.documentElement.clientWidth) return;
+  trackingScroll = true;
+}
+for (const name of ["wheel", "touchmove", "pointerdown", "keydown"]) {
+  window.addEventListener(name, beginScroll, { passive: true });
+}
+function syncVisibleSection() {
+    scrollFrame = 0;
+    if (!trackingScroll) return;
+    const top = navigationBar.offsetHeight + 32;
+    let id = "about";
+    for (const [key, { section }] of destinations) {
+      if (!section.hidden && section.getBoundingClientRect().top <= top) id = key;
+    }
+    if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2) id = "signup";
+    if (location.hash !== "#" + id) {
+      history.replaceState(history.state, "", "#" + id);
+      paintDestination(id);
+    }
+}
+window.addEventListener("scroll", () => {
+  if (trackingScroll && !scrollFrame) scrollFrame = requestAnimationFrame(syncVisibleSection);
+}, { passive: true });
+window.addEventListener("scrollend", () => {
+  cancelAnimationFrame(scrollFrame);
+  syncVisibleSection();
+  trackingScroll = false;
+});
+
+document.querySelector("#plan-nav-item").hidden = false;
+navigationBar.classList.add("is-ready");
+restoreDestination();
+new ResizeObserver(() => {
+  if (menuToggle.getAttribute("aria-expanded") === "false") {
+    document.documentElement.style.setProperty("--nav-height", navigationBar.offsetHeight + "px");
+  }
+}).observe(navigationBar);

@@ -6,7 +6,7 @@
   <meta name="description" content="모아봄은 대학생의 과제와 마감일을 한곳에 모아 오늘 할 일을 정리하는 서비스입니다.">
   <title>모아봄 | 대학생을 위한 과제 관리</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2328543c'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23e9f0e2'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=588870a">
+  <link rel="stylesheet" href="style.css?v=35b024f3">
 </head>
 <body>
   <!--
@@ -23,18 +23,28 @@
     <p class="eyebrow">대학생을 위한 과제 관리</p>
     <h1>모아봄<span class="brand-dot" aria-hidden="true">.</span></h1>
     <p class="tagline">흩어진 과제와 마감일을 한곳에 모아,<br>오늘 할 일을 가볍게.</p>
-    <nav class="site-nav" aria-label="주요 메뉴">
+    </div>
+  </header>
+
+  <div id="navigation-bar" class="navigation-bar">
+    <div class="container navigation-inner">
+    <div id="mobile-nav-tools" class="mobile-nav-tools" hidden>
+      <p class="nav-location">현재 위치 <strong id="nav-location">서비스 소개</strong></p>
+      <button type="button" id="menu-toggle" aria-controls="main-nav" aria-expanded="false">메뉴 열기</button>
+    </div>
+    <nav id="main-nav" class="site-nav" aria-label="주요 메뉴">
       <ul>
         <li><a href="#about">서비스 소개</a></li>
         <li><a href="#features">주요 기능</a></li>
         <li><a href="#tryout">미리 체험</a></li>
+        <li id="plan-nav-item" hidden><a href="#plan-flow">과제 계획</a></li>
         <li><a href="#my-tasks">내 과제</a></li>
         <li><a href="#steps">이용 방법</a></li>
         <li><a href="#signup">시작 알림 신청</a></li>
       </ul>
     </nav>
     </div>
-  </header>
+  </div>
 
   <main id="main-content" class="container">
     <section id="about" class="intro-section">
@@ -254,14 +264,14 @@
       <p id="saved-storage-message" class="storage-message" role="alert" hidden></p>
       <div class="saved-toolbar">
         <div class="saved-filter-field">
-          <label for="saved-filter">과제 상태</label>
-          <select id="saved-filter">
-            <option value="all">전체 과제</option>
-            <option value="active">진행 중</option>
-            <option value="done">완료</option>
-          </select>
+          <p id="saved-filter-label">과제 상태</p>
+          <div id="saved-filter" role="group" aria-labelledby="saved-filter-label">
+            <button type="button" data-filter="all" aria-pressed="true" aria-controls="saved-task-list">전체</button>
+            <button type="button" data-filter="active" aria-pressed="false" aria-controls="saved-task-list">진행 중</button>
+            <button type="button" data-filter="done" aria-pressed="false" aria-controls="saved-task-list">완료</button>
+          </div>
         </div>
-        <p id="saved-result" aria-live="polite">0개 표시</p>
+        <p id="saved-result" role="status" aria-atomic="true">0개 표시</p>
       </div>
       <p id="saved-list-message" class="helper-text" role="status" aria-live="polite"></p>
       <ul id="saved-task-list" class="saved-task-list" aria-label="보관한 과제"></ul>
@@ -346,6 +356,6 @@
     <p><a href="week1/index.html">초기 버전 보기</a> · <a href="https://github.com/rrazx7-bit/-rrazx7-bit-ui-ux_programing_project_">프로젝트 GitHub 저장소 보기</a></p>
     </div>
   </footer>
-  <script src="script.js?v=5c8c60a"></script>
+  <script src="script.js?v=ab5b4ce9"></script>
 </body>
 </html>

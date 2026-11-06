@@ -51,7 +51,10 @@ test('saved tasks: add, reopen, filter, complete, cancel deletion and persist', 
 
   const section = page.locator('#my-tasks');
   const cards = page.locator('#saved-task-list .saved-task-card');
-  const filter = page.locator('#saved-filter');
+  const filters = page.getByRole('group', { name: '과제 상태', exact: true });
+  const all = filters.getByRole('button', { name: '전체', exact: true });
+  const active = filters.getByRole('button', { name: '진행 중', exact: true });
+  const done = filters.getByRole('button', { name: '완료', exact: true });
   const count = page.locator('#saved-count');
   const empty = page.locator('#saved-empty');
   const emptyTitle = page.locator('#saved-empty-title');
@@ -74,7 +77,9 @@ test('saved tasks: add, reopen, filter, complete, cancel deletion and persist', 
   }
 
   await expect(section).toBeVisible();
-  await expect(filter).toHaveValue('all');
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await expect(active).toHaveAttribute('aria-pressed', 'false');
+  await expect(done).toHaveAttribute('aria-pressed', 'false');
   await expect(cards).toHaveCount(0);
   await expect(count).toHaveText('전체 0개 · 진행 중 0개 · 완료 0개');
   await expect(emptyTitle).toHaveText('아직 추가한 과제가 없어요');
@@ -132,7 +137,9 @@ test('saved tasks: add, reopen, filter, complete, cancel deletion and persist', 
   await expect(save).toBeDisabled();
   await expect(cards).toHaveCount(2);
 
-  await filter.selectOption('done');
+  await done.press('Enter');
+  await expect(done).toHaveAttribute('aria-pressed', 'true');
+  await expect(all).toHaveAttribute('aria-pressed', 'false');
   await expect(cards).toHaveCount(0);
   await expect(emptyTitle).toHaveText('완료한 과제가 없어요');
   await expect(page.locator('#saved-first-plan')).toBeHidden();
@@ -142,7 +149,9 @@ test('saved tasks: add, reopen, filter, complete, cancel deletion and persist', 
   await expectNoSavedOverflow(page);
   await section.screenshot({ path: testInfo.outputPath(`saved-filtered-${width}.png`) });
   await page.locator('#saved-show-all').click();
-  await expect(filter).toHaveValue('all');
+  await expect(all).toBeFocused();
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await expect(done).toHaveAttribute('aria-pressed', 'false');
   await expect(cards).toHaveCount(2);
 
   await openTask(title).press('Enter');
@@ -170,20 +179,21 @@ test('saved tasks: add, reopen, filter, complete, cancel deletion and persist', 
   await close.click();
   await expect(dialog).toBeHidden();
   await expect(openTask(title)).toBeFocused();
-  await filter.selectOption('active');
+  await active.click();
+  await expect(active).toHaveAttribute('aria-pressed', 'true');
   await expect(cards).toHaveCount(1);
   await expect(cards.first().locator('.saved-task-title')).toHaveText(secondTitle);
 
   await page.reload({ waitUntil: 'networkidle' });
   await expect(count).toHaveText('전체 2개 · 진행 중 1개 · 완료 1개');
-  await filter.selectOption('done');
+  await done.click();
   await expect(cards).toHaveCount(1);
   await expect(cards.first().locator('.saved-task-title')).toHaveText(title);
   await openTask(title).click();
   await toggle.press('Enter');
   await expect(page.locator('#saved-detail-status')).toHaveText('진행 중');
   await expect(page.locator('#saved-detail-feedback')).toHaveText('진행 중으로 되돌렸어요.');
-  await expect(filter).toHaveValue('done');
+  await expect(done).toHaveAttribute('aria-pressed', 'true');
   await expect(cards).toHaveCount(0);
   await close.click();
   await expect(page.locator('#saved-heading')).toBeFocused();

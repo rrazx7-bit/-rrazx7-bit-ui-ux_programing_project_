@@ -84,8 +84,9 @@ test('planning flow: validation, branches, review, confirmation and restart', as
   await page.locator('#email').fill('student@example.com');
   await signupButton.click();
   await expect(signupButton).toBeDisabled();
-  const originalURL = page.url();
+  const plannerURL = new URL('#plan-flow', page.url()).href;
   await start.click();
+  await expect(page).toHaveURL(plannerURL);
   await expectStep(1);
   await expect(start).toHaveText('계획 이어서 보기');
   await expect(title).toHaveValue('서비스 소개 정리');
@@ -104,7 +105,7 @@ test('planning flow: validation, branches, review, confirmation and restart', as
   await title.press('Enter');
   await expectStep(1);
   await expectFieldError(title, titleError, '과제 이름을 입력해 주세요.');
-  expect(page.url()).toBe(originalURL);
+  expect(page.url()).toBe(plannerURL);
 
   const firstTitle = '발표 자료 준비';
   await title.fill(`  ${firstTitle}  `);
@@ -207,7 +208,7 @@ test('planning flow: validation, branches, review, confirmation and restart', as
   await expect(page.locator('#plan-done-title')).toBeFocused();
   await expectSummary('plan-done', editedTitle, '서비스 기획', '2030-11-21');
   await flow.screenshot({ path: testInfo.outputPath(`plan-done-${width}.png`) });
-  expect(page.url()).toBe(originalURL);
+  expect(page.url()).toBe(plannerURL);
   await start.click();
   await expectStep(4);
 
@@ -245,12 +246,11 @@ test('planning flow: validation, branches, review, confirmation and restart', as
   await expectStep(4);
   await expectSummary('plan-done', literalTitle, '미지정', '마감일 없음');
   await expect(page.locator('#plan-done-title-text').locator('b')).toHaveCount(0);
-  expect(page.url()).toBe(originalURL);
+  expect(page.url()).toBe(plannerURL);
 
+  // 직접 공유할 수 있는 계획 주소는 새로고침해도 같은 목적지를 열고, 초안만 비웁니다.
   await page.reload({ waitUntil: 'networkidle' });
-  await expect(flow).toBeHidden();
-  await expect(start).toHaveText('과제 계획 세우기');
-  await start.click();
+  await expect(page).toHaveURL(plannerURL);
   await expectStep(1);
   await expect(title).toHaveValue('');
   await expect(course).toHaveValue('');
